@@ -42,7 +42,7 @@ const login = async (req, res) => {
             return res.status(400).json({ message: "Invalid Password" });
         }
         const token = await jwt.sign({
-            id: findUser._id,
+            id: findUser.id,
             email: findUser.email,
         }, process.env.JWT_SECRET, { expiresIn: '30d' })
         delete findUser.password;
@@ -53,8 +53,63 @@ const login = async (req, res) => {
     }
 }
 
+const autoLogin = async (req, res) => {
+    try {
+        const user = await db.user.findFirst({
+            where: {
+                id: req.user.id
+            },
+            include: {
+                profile: {
+                    select: {
+                       bio: true,
+                       img: true,
+                       dob: true,
+                    }
+                }
+            }
+        });
+        delete user.password;
+        res.status(200).json(user);
+    } catch (error) {
+        res.status(400).json(error);
+    }
+}
+
+const updateProfile = async (req, res) => {
+    try {
+        const data = await req.body;
+        const findProfile = await db.profile.findFirst({
+            where: {
+                userId: req.user.id
+            }
+        });
+        if (!findProfile) {
+            const profile = await db.profile.create({
+                data: {
+                    ...data,
+                    userId: req.user.id
+                }
+            });
+            res.status(201).json(profile);
+        } else {
+            const profile = await db.profile.update({
+                where: {
+                    id: findProfile.id
+                },
+                data: data
+            });
+            res.status(200).json(profile);
+        }
+    } catch (error) {
+        res.status(400).json(error);
+    }
+}
+
 
 module.exports = {
     signup,
-    login
+    login,
+    autoLogin,
+    updateProfile
 }
